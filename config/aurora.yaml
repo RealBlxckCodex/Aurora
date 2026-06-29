@@ -1,0 +1,44 @@
+server:
+  host: 0.0.0.0
+  port: 11435
+  workers: 4
+
+hardware:
+  cpu:
+    enabled: true
+    threads: 0
+    avx512: auto
+    amx: auto
+    memory_limit: "8GB"
+  gpu:
+    enabled: auto
+    devices: [0]
+    vram_limit: "12GB"
+    fallback_to_cpu: true
+
+models:
+  dir: "/var/aurora/models"
+  sources:
+    - "https://cdn.aurora.ai/models/"
+  entries:
+    kokoro-v1:
+      url: "https://cdn.aurora.ai/models/kokoro/v1/model.gguf"
+      sha256: ""
+      voices_url: "https://cdn.aurora.ai/models/kokoro/v1/voices/"
+    whisper-turbo:
+      url: "https://cdn.aurora.ai/models/whisper/turbo/model.bin"
+      sha256: ""
+
+api:
+  auth:
+    enabled: false
+  rate_limit:
+    enabled: false
+  cors:
+    enabled: true
+    origins: ["*"]
+
+logging:
+  level: "info"
+  format: "json"
+  output: "stdout"

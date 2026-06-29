@@ -1,0 +1,29 @@
+# Build output
+bin/
+
+# External deps (clone separately: ext/whisper.cpp, ext/llama.cpp)
+/ext/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Keep only README.md, ignore all other markdown
+*.md
+!README.md
+
+# Design drafts
+*.html
+
+# Config override (user-specific)
+config/aurora.local.yaml
+
+# Temp
+/tmp/
