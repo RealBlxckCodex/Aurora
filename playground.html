@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aurora TTS Playground</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: #f5f5f5; color: #222; padding: 2rem; }
+  .container { max-width: 800px; margin: 0 auto; }
+  h1 { font-size: 1.5rem; margin-bottom: .25rem; }
+  .sub { color: #666; margin-bottom: 1.5rem; }
+  .card { background: #fff; border-radius: 12px; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,.1); margin-bottom: 1rem; }
+  label { display: block; font-size: .875rem; font-weight: 600; margin-bottom: .375rem; color: #333; }
+  textarea, select, input { width: 100%; padding: .625rem; border: 1px solid #ddd; border-radius: 8px; font-size: .875rem; font-family: inherit; }
+  textarea:focus, select:focus, input:focus { outline: none; border-color: #6b21a8; box-shadow: 0 0 0 3px rgba(107,33,168,.15); }
+  textarea { resize: vertical; min-height: 80px; }
+  .row { display: flex; gap: 1rem; }
+  .row > * { flex: 1; }
+  button { background: #6b21a8; color: #fff; border: none; padding: .75rem 1.5rem; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: background .15s; width: 100%; margin-top: .5rem; }
+  button:hover { background: #581c87; }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  .status { margin-top: .75rem; padding: .75rem; border-radius: 8px; font-size: .875rem; }
+  .status.idle { background: #f0f0f0; color: #666; }
+  .status.streaming { background: #f3e8ff; color: #6b21a8; }
+  .status.done { background: #d1fae5; color: #065f46; }
+  .status.error { background: #fce4ec; color: #b71c1c; }
+  audio { width: 100%; margin-top: .75rem; }
+  .controls { display: flex; gap: .5rem; }
+  .controls button { flex: 1; margin-top: 0; }
+  .chunks { font-size: .75rem; color: #888; margin-top: .5rem; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>🎙️ Aurora TTS Playground</h1>
+  <p class="sub">Streaming text-to-speech via SSE</p>
+
+  <div class="card">
+    <label for="text">Text</label>
+    <textarea id="text" placeholder="Enter text to synthesize...">Hello from Aurora! This is streaming text-to-speech.</textarea>
+
+    <div class="row">
+      <div>
+        <label for="model">Model</label>
+        <select id="model">
+          <option value="kokoro-v1">kokoro-v1</option>
+          <option value="piper-de_DE">piper-de_DE</option>
+          <option value="kokoro-de">kokoro-de</option>
+        </select>
+      </div>
+      <div>
+        <label for="voice">Voice</label>
+        <select id="voice">
+          <optgroup label="Kokoro">
+            <option value="af_heart">af_heart (Heart)</option>
+            <option value="af_bella">af_bella (Bella)</option>
+            <option value="af_nicole">af_nicole (Nicole)</option>
+            <option value="am_adam">am_adam (Adam)</option>
+            <option value="am_michael">am_michael (Michael)</option>
+            <option value="bf_emma">bf_emma (Emma - FR)</option>
+            <option value="bm_george">bm_george (George - FR)</option>
+            <option value="df_dora">df_dora (Dora - DE)</option>
+            <option value="dm_rick">dm_rick (Rick - DE)</option>
+          </optgroup>
+          <optgroup label="Piper">
+            <option value="thorsten">thorsten (DE)</option>
+          </optgroup>
+        </select>
+      </div>
+      <div>
+        <label for="speed">Speed</label>
+        <input type="number" id="speed" value="1.0" min="0.5" max="2.0" step="0.1">
+      </div>
+    </div>
+
+    <div class="controls">
+      <button id="speakBtn">▶ Speak</button>
+      <button id="stopBtn" disabled>■ Stop</button>
+      <button id="downloadBtn" disabled>⬇ Download</button>
+    </div>
+
+    <div id="status" class="status idle">Ready</div>
+    <div id="chunks" class="chunks"></div>
+    <audio id="player" controls></audio>
+  </div>
+
+  <div class="card">
+    <label for="serverUrl">Server URL</label>
+    <input id="serverUrl" value="http://localhost:11435">
+  </div>
+</div>
+
+<script>
+const audioContext = new (window.AudioContext || window.webkitAudioContext)()
+let mediaSource = null
+let sourceBuffer = null
+let audioQueue = []
+let aborter = null
+
+const el = (id) => document.getElementById(id)
+const speakBtn = el("speakBtn")
+const stopBtn = el("stopBtn")
+const downloadBtn = el("downloadBtn")
+const status = el("status")
+const chunks = el("chunks")
+const player = el("player")
+
+function setStatus(type, msg) {
+  status.className = `status ${type}`
+  status.textContent = msg
+}
+
+function appendChunks(msg) {
+  const prev = chunks.textContent
+  chunks.textContent = prev ? prev + "\n" + msg : msg
+  chunks.scrollTop = chunks.scrollHeight
+}
+
+async function startStream() {
+  if (aborter) {
+    aborter.abort()
+    aborter = null
+  }
+  aborter = new AbortController()
+
+  const baseURL = el("serverUrl").value.replace(/\/+$/, "")
+  const text = el("text").value.trim()
+  if (!text) return
+
+  speakBtn.disabled = true
+  stopBtn.disabled = false
+  downloadBtn.disabled = true
+  chunks.textContent = ""
+  audioQueue = []
+
+  setStatus("streaming", "Streaming...")
+
+  try {
+    const resp = await fetch(`${baseURL}/v1/audio/speech`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: el("model").value,
+        input: text,
+        voice: el("voice").value,
+        response_format: "wav",
+        speed: parseFloat(el("speed").value),
+        stream: true,
+      }),
+      signal: aborter.signal,
+    })
+
+    if (!resp.ok || !resp.body) {
+      const err = await resp.json().catch(() => ({ error: resp.statusText }))
+      throw new Error(err.error)
+    }
+
+    const reader = resp.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ""
+    let totalBytes = 0
+
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+
+      buffer += decoder.decode(value, { stream: true })
+      const lines = buffer.split("\n")
+      buffer = lines.pop() || ""
+
+      for (const line of lines) {
+        const trimmed = line.trim()
+        if (!trimmed.startsWith("data: ")) continue
+        const payload = trimmed.slice(6)
+
+        if (payload === "[DONE]") {
+          setStatus("done", `Complete — ${totalBytes} bytes received`)
+          appendChunks("[DONE]")
+          stopBtn.disabled = true
+          downloadBtn.disabled = false
+          return
+        }
+
+        const chunk = JSON.parse(payload)
+        const binary = atob(chunk.audio)
+        const bytes = new Uint8Array(binary.length)
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+        totalBytes += bytes.length
+        audioQueue.push(bytes)
+
+        const idx = chunk.index !== undefined ? chunk.index : "?"
+        appendChunks(`chunk ${idx}: ${bytes.length} bytes (final: ${chunk.final})`)
+      }
+    }
+  } catch (err) {
+    if (err.name === "AbortError") {
+      setStatus("idle", "Stopped")
+    } else {
+      setStatus("error", `Error: ${err.message}`)
+    }
+  } finally {
+    speakBtn.disabled = false
+    stopBtn.disabled = true
+  }
+}
+
+function stopStream() {
+  if (aborter) {
+    aborter.abort()
+    aborter = null
+  }
+  speakBtn.disabled = false
+  stopBtn.disabled = true
+  setStatus("idle", "Stopped")
+}
+
+function downloadAudio() {
+  if (audioQueue.length === 0) return
+  const totalLen = audioQueue.reduce((sum, b) => sum + b.length, 0)
+  const combined = new Uint8Array(totalLen)
+  let offset = 0
+  for (const b of audioQueue) {
+    combined.set(b, offset)
+    offset += b.length
+  }
+  const blob = new Blob([combined], { type: "audio/wav" })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement("a")
+  a.href = url
+  a.download = `aurora-tts-${Date.now()}.wav`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+speakBtn.addEventListener("click", startStream)
+stopBtn.addEventListener("click", stopStream)
+downloadBtn.addEventListener("click", downloadAudio)
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) startStream()
+})
+</script>
+</body>
+</html>
