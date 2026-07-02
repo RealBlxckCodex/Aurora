@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -18,6 +19,7 @@ type WhisperBackend struct {
 	models    map[string]*domain.Model
 	modelDir  string
 	whisperBin string
+	threads  int
 }
 
 func NewWhisperBackend() *WhisperBackend {
@@ -29,6 +31,7 @@ func NewWhisperBackend() *WhisperBackend {
 
 func (w *WhisperBackend) Initialize(config BackendConfig) error {
 	w.modelDir = config.ModelDir
+	w.threads = config.Threads
 
 	candidates := []string{
 		"/home/Workspace/Aurora/ext/whisper.cpp/build/bin/whisper-cli",
@@ -92,7 +95,11 @@ func (w *WhisperBackend) Infer(ctx context.Context, request InferenceRequest) (I
 	if request.Language != "" {
 		args = append(args, "-l", request.Language)
 	}
-	args = append(args, "-t", "4", "--no-prints")
+	numThreads := w.threads
+	if numThreads <= 0 {
+		numThreads = runtime.NumCPU()
+	}
+	args = append(args, "-t", fmt.Sprintf("%d", numThreads), "-p", "4", "--no-prints")
 
 	cmd := exec.CommandContext(ctx, w.whisperBin, args...)
 	var stderr bytes.Buffer

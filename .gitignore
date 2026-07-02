@@ -15,12 +15,14 @@ bin/
 .DS_Store
 Thumbs.db
 
-# Keep only README.md, ignore all other markdown
+# Keep only README.md and api.md, ignore all other markdown
 *.md
 !README.md
+!api.md
 
-# Design drafts
+# Keep playground.html, ignore other design drafts
 *.html
+!playground.html
 
 # Config override (user-specific)
 config/aurora.local.yaml
