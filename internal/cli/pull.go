@@ -45,16 +45,23 @@ The registry URL defaults to the config value (http://localhost:8000).`,
 			cfg := config.Default()
 			modelDir = firstNonEmpty(modelDir, cfg.Models.Dir, "/var/aurora/models")
 
+			if err := checkWritable(modelDir); err != nil {
+				return fmt.Errorf("%w\n  → run with sudo or set a custom model dir in config (e.g. ~/.aurora/models)", err)
+			}
+
 			if releaseTag != "" {
 				return pullFromRelease(releaseTag, args, modelDir)
 			}
 
+			if installAll {
+				return pullAll(modelDir)
+			}
+
 			if len(args) == 0 {
-				return fmt.Errorf("specify a model to pull")
+				return fmt.Errorf("specify a model to pull, or use --all")
 			}
 
 			arg := args[0]
-			_ = quantization
 
 			if isHuggingFaceRef(arg) {
 				return pullFromHuggingFace(arg, modelDir)
@@ -98,7 +105,7 @@ The registry URL defaults to the config value (http://localhost:8000).`,
 	cmd.Flags().StringVar(&registryURL, "registry", "", "Registry URL (default: from config)")
 	cmd.Flags().StringVar(&modelDir, "model-dir", "", "Install directory (default: from config)")
 	cmd.Flags().StringVar(&releaseTag, "release", "", "Pull from GitHub Release tag (e.g. v0.1.0)")
-	cmd.Flags().BoolVar(&installAll, "all", false, "Install all available models (with --release)")
+	cmd.Flags().BoolVar(&installAll, "all", false, "Install all available models from manifest")
 
 	return cmd
 }
@@ -192,6 +199,23 @@ func pullFromRelease(tag string, args []string, modelDir string) error {
 		}
 	}
 
+	return nil
+}
+
+func pullAll(modelDir string) error {
+	manifest, err := models.LoadManifest("models/manifest.json")
+	if err != nil {
+		return fmt.Errorf("load local manifest: %w", err)
+	}
+	baseURL := manifest.BaseURL
+
+	for modelID := range manifest.Models {
+		if err := installReleaseModel(manifest, modelID, baseURL, modelDir); err != nil {
+			fmt.Printf("  ✗ %s: %v\n", modelID, err)
+		} else {
+			fmt.Printf("  ✓ %s\n", modelID)
+		}
+	}
 	return nil
 }
 
@@ -348,6 +372,18 @@ func firstNonEmpty(vals ...string) string {
 	return ""
 }
 
+func checkWritable(dir string) error {
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return fmt.Errorf("cannot create model directory %q: %w", dir, err)
+	}
+	tmp, err := os.CreateTemp(dir, ".write-test-*")
+	if err != nil {
+		return fmt.Errorf("cannot write to %q: %w", dir, err)
+	}
+	os.Remove(tmp.Name())
+	return nil
+}
+
 func isHuggingFaceRef(arg string) bool {
 	return strings.HasPrefix(arg, "hf.co/") || strings.HasPrefix(arg, "huggingface.co/")
 }
@@ -377,10 +413,13 @@ func pullFromHuggingFace(arg, modelDir string) error {
 		modelDir = "/var/aurora/models"
 	}
 
-	modelID := "hf/" + namespace + "/" + repo
-	if filename != "" {
-		modelID += "/" + filename
+	modelID := filename
+	if modelID == "" {
+		modelID = namespace + "-" + repo
 	}
+	modelID = strings.TrimSuffix(modelID, ".gguf")
+	modelID = strings.TrimSuffix(modelID, ".bin")
+	modelID = strings.TrimSuffix(modelID, ".onnx")
 
 	downloadURL := "https://huggingface.co/" + namespace + "/" + repo + "/resolve/main/" + filename
 
