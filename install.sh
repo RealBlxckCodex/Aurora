@@ -1,11 +1,6 @@
 #!/bin/bash
 set -euo pipefail
 
-# ─────────────────────────────────────────────
-#  Aurora Installer  —  one-liner wie Ollama
-#  curl -fsSL https://aurora.sh/install | sh
-# ─────────────────────────────────────────────
-
 REPO="RealBlxckCodex/Aurora"
 BINARY="aurora"
 VERSION="${AURORA_VERSION:-latest}"
@@ -16,7 +11,6 @@ MODELS_DIR="/var/aurora/models"
 BIN_DIR="/usr/local/bin"
 SYSTEMD_DIR="/etc/systemd/system"
 
-# ── Farben ──
 GREEN='\033[0;32m'
 CYAN='\033[0;36m'
 YELLOW='\033[1;33m'
@@ -60,21 +54,54 @@ esac
 
 info "Detected: $OS / $ARCH"
 
-# ── Check existing install ──
-OVERWRITE=1
+# ── Existing install check ──
+EXISTING_VERSION=""
 if command -v $BINARY >/dev/null 2>&1; then
-  EXISTING_VERSION=$($BINARY --version 2>/dev/null || true)
-  warn "$BINARY already installed${EXISTING_VERSION:+ ($EXISTING_VERSION)}"
-  if [ -t 0 ]; then
+  EXISTING_VERSION=$($BINARY --version 2>/dev/null || echo "unknown")
+fi
+
+# ── Parse args for --force / --update-models ──
+FORCE=0
+UPDATE_MODELS=0
+for arg in "$@"; do
+  case "$arg" in
+    --force|-f) FORCE=1 ;;
+    --update-models|-m) UPDATE_MODELS=1 ;;
+  esac
+done
+
+# ── Stop service if running ──
+SERVICE_RUNNING=0
+if command -v systemctl >/dev/null 2>&1 && systemctl is-active --quiet aurora.service 2>/dev/null; then
+  SERVICE_RUNNING=1
+  if [ "$FORCE" -eq 1 ]; then
+    info "Stopping aurora.service..."
+    systemctl stop aurora.service
+  fi
+fi
+
+# ── Prompt for update vs fresh install ──
+if [ -n "$EXISTING_VERSION" ]; then
+  warn "$BINARY already installed ($EXISTING_VERSION)"
+  AUTO_OVERWRITE=0
+  if [ "$FORCE" -eq 1 ]; then
+    AUTO_OVERWRITE=1
+  elif [ -t 0 ]; then
     echo
-    read -rp "  Overwrite? [Y/n] " REPLY
+    read -rp "  Update to latest? [Y/n] " REPLY
     if printf '%s' "$REPLY" | grep -iq '^n'; then
       info "Aborted."
       exit 0
     fi
+    echo
+    read -rp "  Also update models? [y/N] " REPLY
+    if printf '%s' "$REPLY" | grep -iq '^y'; then
+      UPDATE_MODELS=1
+    fi
   else
-    info "Proceeding with overwrite (non-interactive mode)"
+    info "Proceeding with update (non-interactive). Use --force to skip prompts."
   fi
+  info "Updating $BINARY $EXISTING_VERSION → latest..."
 fi
 
 # ── Install system dependencies ──
@@ -108,9 +135,9 @@ TMP_DIR=$(mktemp -d)
 trap 'rm -rf "$TMP_DIR"' EXIT
 
 BINARY_PATH="$TMP_DIR/$BINARY"
+BUILD_FROM_SOURCE=0
 
 if [ "$VERSION" = "latest" ] || curl -sfI "$DOWNLOAD_BASE/$VERSION/$BINARY-$OS-$ARCH_GO" >/dev/null 2>&1; then
-  # ── Download pre-built ──
   if [ "$VERSION" = "latest" ]; then
     info "Fetching latest release..."
     TAG=$(curl -sf "https://api.github.com/repos/$REPO/releases/latest" | grep '"tag_name"' | head -1 | sed 's/.*"tag_name": "\(.*\)",/\1/')
@@ -137,8 +164,7 @@ else
   BUILD_FROM_SOURCE=1
 fi
 
-if [ "${BUILD_FROM_SOURCE:-0}" = "1" ]; then
-  # ── Build from source ──
+if [ "$BUILD_FROM_SOURCE" -eq 1 ]; then
   if ! command -v go >/dev/null 2>&1; then
     info "Go not found — installing Go $ARCH_GO..."
     GO_VERSION="1.24.1"
@@ -162,13 +188,12 @@ fi
 
 # ── Install binary ──
 install -m 755 "$BINARY_PATH" "$BIN_DIR/$BINARY"
-ok "Installed to $BIN_DIR/$BINARY"
+ok "Installed $BINARY to $BIN_DIR/$BINARY"
 
 # ── Create directories ──
 mkdir -p "$CONFIG_DIR" "$MODELS_DIR"
-ok "Created $CONFIG_DIR and $MODELS_DIR"
 
-# ── Default config ──
+# ── Default config (only if not exists) ──
 if [ ! -f "$CONFIG_DIR/aurora.yaml" ]; then
   cat > "$CONFIG_DIR/aurora.yaml" <<CONF
 server:
@@ -203,14 +228,13 @@ logging:
 CONF
   ok "Created default config at $CONFIG_DIR/aurora.yaml"
 else
-  warn "Config already exists, skipping"
+  ok "Config exists at $CONFIG_DIR/aurora.yaml"
 fi
 
-# ── systemd service ──
+# ── systemd service (always update on reinstall) ──
 if command -v systemctl >/dev/null 2>&1; then
   SERVICE_FILE="$SYSTEMD_DIR/aurora.service"
-  if [ ! -f "$SERVICE_FILE" ]; then
-    cat > "$SERVICE_FILE" <<UNIT
+  cat > "$SERVICE_FILE" <<UNIT
 [Unit]
 Description=Aurora Audio Inference Engine
 After=network-online.target
@@ -226,22 +250,28 @@ LimitNOFILE=65536
 [Install]
 WantedBy=multi-user.target
 UNIT
-    systemctl daemon-reload
-    ok "Created systemd service (aurora.service)"
-    info "Start with: systemctl start aurora"
-    info "Enable on boot: systemctl enable aurora"
-  else
-    warn "Systemd service already exists, skipping"
-  fi
+  systemctl daemon-reload
+  ok "Updated systemd service (aurora.service)"
+fi
+
+# ── Restart service if it was running ──
+if [ "$SERVICE_RUNNING" -eq 1 ]; then
+  info "Restarting aurora.service..."
+  systemctl start aurora.service
+  ok "aurora.service restarted"
 fi
 
 # ── Models (optional) ──
-if [ "${AURORA_INSTALL_MODELS:-0}" = "1" ] && [ -n "$RELEASE_TAG" ]; then
-  info "Installing models from release $RELEASE_TAG..."
-  $BIN_DIR/$BINARY pull --release "$RELEASE_TAG" --all || warn "Model installation incomplete (some models may be on HuggingFace)"
-elif [ "${AURORA_INSTALL_MODELS:-0}" = "1" ]; then
-  warn "AURORA_INSTALL_MODELS=1 requires a release tag"
-  warn "Set AURORA_RELEASE_TAG=v0.1.0 or run: aurora pull <model>"
+if [ "$UPDATE_MODELS" -eq 1 ] || [ "${AURORA_INSTALL_MODELS:-0}" = "1" ]; then
+  if [ -n "$RELEASE_TAG" ]; then
+    info "Installing models from release $RELEASE_TAG..."
+    $BIN_DIR/$BINARY pull --release "$RELEASE_TAG" --all || warn "Model installation incomplete"
+  elif [ -z "$RELEASE_TAG" ] && [ "${AURORA_INSTALL_MODELS:-0}" = "1" ]; then
+    info "Installing all models from manifest..."
+    $BIN_DIR/$BINARY pull --all || warn "Model installation incomplete"
+  else
+    warn "No release tag set. Use AURORA_RELEASE_TAG=v0.1.0 or run: aurora pull <model>"
+  fi
 fi
 
 # ── Done ──
@@ -251,8 +281,8 @@ cat <<EOF
 
   ${CYAN}Commands:${NC}
     aurora serve              Start the API server
-    aurora pull kokoro-v1     Pull a model from registry
-    aurora pull --release v0.1.0 kokoro-v1   Pull from GitHub Release
+    aurora pull <model>       Pull a model from registry
+    aurora pull --all         Install all models from manifest
     aurora pull hf.co/...     Pull from HuggingFace
     aurora list               List available models
 
@@ -264,17 +294,8 @@ cat <<EOF
     systemctl enable aurora
     journalctl -u aurora -f
 
-  ${CYAN}Models:${NC}
-    # Small models (from release bundle):
-    aurora pull --release $RELEASE_TAG kokoro-v1
-    aurora pull --release $RELEASE_TAG kokoro-de
-    aurora pull --release $RELEASE_TAG piper-de_DE
-    aurora pull --release $RELEASE_TAG whisper-turbo
-    # Large models (from HuggingFace):
-    aurora pull hf.co/isaiahbjork/orpheus-3b-0.1-ft-Q4_K_M-GGUF:orpheus-3b-0.1-ft-q4_k_m.gguf
-    aurora pull hf.co/freddyaboulton/3b-de-ft-research_release-Q4_K_M-GGUF:3b-de-ft-research_release-q4_k_m.gguf
-
-  ${CYAN}Docs:${NC}
-    https://github.com/$REPO#readme
+  ${CYAN}Update:${NC}
+    curl -fsSL https://raw.githubusercontent.com/$REPO/main/install.sh | sudo sh
+    curl -fsSL https://raw.githubusercontent.com/$REPO/main/install.sh | sudo sh -s -- -m   # + update models
 
 EOF
