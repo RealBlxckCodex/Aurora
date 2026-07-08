@@ -285,7 +285,10 @@ func installReleaseModel(manifest *models.Manifest, modelID, baseURL, modelDir s
 
 	fmt.Printf("  Extracting to %s...\n", destDir)
 
-	if err := extractTarGz(tmpArchive, modelDir); err != nil {
+	if err := os.MkdirAll(destDir, 0755); err != nil {
+		return fmt.Errorf("create dir: %w", err)
+	}
+	if err := extractTarGz(tmpArchive, destDir); err != nil {
 		return fmt.Errorf("extract bundle: %w", err)
 	}
 
