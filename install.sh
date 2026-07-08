@@ -61,14 +61,19 @@ esac
 info "Detected: $OS / $ARCH"
 
 # ── Check existing install ──
+OVERWRITE=1
 if command -v $BINARY &>/dev/null; then
   EXISTING_VERSION=$($BINARY --version 2>/dev/null || true)
   warn "$BINARY already installed${EXISTING_VERSION:+ ($EXISTING_VERSION)}"
-  echo
-  read -rp "  Overwrite? [Y/n] " REPLY
-  if [[ "$REPLY" =~ ^[Nn] ]]; then
-    info "Aborted."
-    exit 0
+  if [ -t 0 ]; then
+    echo
+    read -rp "  Overwrite? [Y/n] " REPLY
+    if [[ "$REPLY" =~ ^[Nn] ]]; then
+      info "Aborted."
+      exit 0
+    fi
+  else
+    info "Proceeding with overwrite (non-interactive mode)"
   fi
 fi
 
