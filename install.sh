@@ -62,13 +62,13 @@ info "Detected: $OS / $ARCH"
 
 # ── Check existing install ──
 OVERWRITE=1
-if command -v $BINARY &>/dev/null; then
+if command -v $BINARY >/dev/null 2>&1; then
   EXISTING_VERSION=$($BINARY --version 2>/dev/null || true)
   warn "$BINARY already installed${EXISTING_VERSION:+ ($EXISTING_VERSION)}"
   if [ -t 0 ]; then
     echo
     read -rp "  Overwrite? [Y/n] " REPLY
-    if [[ "$REPLY" =~ ^[Nn] ]]; then
+    if printf '%s' "$REPLY" | grep -iq '^n'; then
       info "Aborted."
       exit 0
     fi
@@ -79,13 +79,13 @@ fi
 
 # ── Install system dependencies ──
 DEPENDENCIES=""
-if command -v apt-get &>/dev/null; then
+if command -v apt-get >/dev/null 2>&1; then
   PKG_MANAGER="apt-get"
   DEPENDENCIES="espeak-ng"
-elif command -v yum &>/dev/null; then
+elif command -v yum >/dev/null 2>&1; then
   PKG_MANAGER="yum"
   DEPENDENCIES="espeak-ng"
-elif command -v apk &>/dev/null; then
+elif command -v apk >/dev/null 2>&1; then
   PKG_MANAGER="apk"
   DEPENDENCIES="espeak-ng"
 else
@@ -109,7 +109,7 @@ trap 'rm -rf "$TMP_DIR"' EXIT
 
 BINARY_PATH="$TMP_DIR/$BINARY"
 
-if [ "$VERSION" = "latest" ] || curl -sfI "$DOWNLOAD_BASE/$VERSION/$BINARY-$OS-$ARCH_GO" &>/dev/null; then
+if [ "$VERSION" = "latest" ] || curl -sfI "$DOWNLOAD_BASE/$VERSION/$BINARY-$OS-$ARCH_GO" >/dev/null 2>&1; then
   # ── Download pre-built ──
   if [ "$VERSION" = "latest" ]; then
     info "Fetching latest release..."
@@ -139,7 +139,7 @@ fi
 
 if [ "${BUILD_FROM_SOURCE:-0}" = "1" ]; then
   # ── Build from source ──
-  if ! command -v go &>/dev/null; then
+  if ! command -v go >/dev/null 2>&1; then
     info "Go not found — installing Go $ARCH_GO..."
     GO_VERSION="1.24.1"
     GO_TAR="go$GO_VERSION.$OS-$ARCH_GO.tar.gz"
@@ -207,7 +207,7 @@ else
 fi
 
 # ── systemd service ──
-if command -v systemctl &>/dev/null; then
+if command -v systemctl >/dev/null 2>&1; then
   SERVICE_FILE="$SYSTEMD_DIR/aurora.service"
   if [ ! -f "$SERVICE_FILE" ]; then
     cat > "$SERVICE_FILE" <<UNIT
