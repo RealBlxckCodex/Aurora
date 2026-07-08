@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 	"path/filepath"
 
 	"github.com/RealBlxckCodex/Aurora/internal/config"
@@ -25,7 +26,47 @@ func NewManager(cfg *config.ModelsConfig) *Manager {
 }
 
 func (m *Manager) Initialize() error {
-	return m.store.Load()
+	if err := m.store.Load(); err != nil {
+		return err
+	}
+	if len(m.store.List()) == 0 {
+		m.Scan()
+	}
+	return nil
+}
+
+func (m *Manager) Scan() {
+	entries, err := os.ReadDir(m.cfg.Dir)
+	if err != nil {
+		return
+	}
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		id := entry.Name()
+		if m.store.Get(id) != nil {
+			continue
+		}
+		dir := filepath.Join(m.cfg.Dir, id)
+		files, err := os.ReadDir(dir)
+		if err != nil {
+			continue
+		}
+		for _, f := range files {
+			if f.IsDir() {
+				continue
+			}
+			ext := filepath.Ext(f.Name())
+			if ext == ".onnx" || ext == ".gguf" || ext == ".bin" {
+				m.store.Add(&domain.Model{
+					ID:        id,
+					Installed: true,
+				})
+				break
+			}
+		}
+	}
 }
 
 func (m *Manager) List() []*domain.Model {

@@ -50,27 +50,6 @@ func (s *Store) Load() error {
 	return nil
 }
 
-func (s *Store) Save() error {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	models := make([]*domain.Model, 0, len(s.cache))
-	for _, m := range s.cache {
-		models = append(models, m)
-	}
-
-	data, err := json.MarshalIndent(models, "", "  ")
-	if err != nil {
-		return fmt.Errorf("marshal: %w", err)
-	}
-
-	if err := os.MkdirAll(s.modelsDir, 0755); err != nil {
-		return fmt.Errorf("create models dir: %w", err)
-	}
-
-	return os.WriteFile(s.dbPath(), data, 0644)
-}
-
 func (s *Store) List() []*domain.Model {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -92,17 +71,17 @@ func (s *Store) Add(model *domain.Model) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.cache[model.ID] = model
-	return s.saveLocked()
+	return s.save()
 }
 
 func (s *Store) Remove(id string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	delete(s.cache, id)
-	return s.saveLocked()
+	return s.save()
 }
 
-func (s *Store) saveLocked() error {
+func (s *Store) save() error {
 	models := make([]*domain.Model, 0, len(s.cache))
 	for _, m := range s.cache {
 		models = append(models, m)
@@ -113,7 +92,17 @@ func (s *Store) saveLocked() error {
 		return err
 	}
 
+	if err := os.MkdirAll(s.modelsDir, 0755); err != nil {
+		return fmt.Errorf("create models dir: %w", err)
+	}
+
 	return os.WriteFile(s.dbPath(), data, 0644)
+}
+
+func (s *Store) Save() error {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.save()
 }
 
 func (s *Store) ModelPath(model *domain.Model) string {
