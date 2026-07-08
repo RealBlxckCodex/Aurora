@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "base_url": "https://huggingface.co/aurora-ai/models/resolve/main",
+  "base_url": "https://github.com/RealBlxckCodex/Aurora/releases/download/v0.1.0",
   "models": {
     "kokoro-v1": {
       "name": "Kokoro TTS v1",
@@ -8,14 +8,15 @@
       "type": "tts",
       "format": "onnx",
       "version": "1.0.0",
+      "bundle": "models-kokoro-v1.tar.gz",
       "files": {
         "model.onnx": {
-          "url": "https://huggingface.co/aurora-ai/models/resolve/main/kokoro-v1/kokoro-v1.0.onnx",
+          "url": "",
           "sha256": "8fbea51ea711f2af382e88c833d9e288c6dc82ce5e98421ea61c058ce21a34cb",
           "size": 311000000
         },
         "voices.bin": {
-          "url": "https://huggingface.co/aurora-ai/models/resolve/main/kokoro-v1/voices-v1.0.bin",
+          "url": "",
           "sha256": "27c2c228b2ca4601387642d25a60ad2c2f86d338d357f469ecf32251d89220a5",
           "size": 26000000
         }
@@ -29,14 +30,15 @@
       "type": "tts",
       "format": "onnx",
       "version": "1.0.0",
+      "bundle": "models-kokoro-de.tar.gz",
       "files": {
         "model.onnx": {
-          "url": "https://huggingface.co/aurora-ai/models/resolve/main/kokoro-de/kokoro-martin.onnx",
+          "url": "",
           "sha256": "c302f1d8bc7adf40a842cb550e18c39a5026bdb1afdd29dbb700b501cb49276b",
           "size": 311000000
         },
         "voices.bin": {
-          "url": "https://huggingface.co/aurora-ai/models/resolve/main/kokoro-de/voices-martin.npz",
+          "url": "",
           "sha256": "5b9c8553398d7abf67498ce500c186cefaa7b68fed3e3d415da5380670105acd",
           "size": 511000
         }
@@ -50,16 +52,17 @@
       "type": "tts",
       "format": "onnx",
       "version": "latest",
+      "bundle": "models-piper-de_DE.tar.gz",
       "files": {
         "model.onnx": {
-          "url": "https://huggingface.co/aurora-ai/models/resolve/main/piper-de_DE/de_DE-thorsten-medium.onnx",
-          "sha256": "",
-          "size": 150000000
+          "url": "",
+          "sha256": "7e64762d8e5118bb578f2eea6207e1a35a8e0c30595010b666f983fc87bb7819",
+          "size": 63200000
         },
         "model.onnx.json": {
-          "url": "https://huggingface.co/aurora-ai/models/resolve/main/piper-de_DE/de_DE-thorsten-medium.onnx.json",
-          "sha256": "",
-          "size": 1000
+          "url": "",
+          "sha256": "974adee790533adb273a1ac88f49027d2a1b8f0f2cf4905954a4791e79264e85",
+          "size": 5000
         }
       },
       "voices": ["thorsten"],
@@ -73,7 +76,7 @@
       "version": "3b-0.1",
       "files": {
         "model.gguf": {
-          "url": "https://huggingface.co/aurora-ai/models/resolve/main/orpheus-en/orpheus-3b-0.1-ft-q4_k_m.gguf",
+          "url": "https://huggingface.co/isaiahbjork/orpheus-3b-0.1-ft-Q4_K_M-GGUF/resolve/main/orpheus-3b-0.1-ft-q4_k_m.gguf",
           "sha256": "18284d3efd9831d0a8409f5f5877c84bff69009df7c3db818e904dccea6b6c55",
           "size": 2254000000
         }
@@ -89,7 +92,7 @@
       "version": "3b-0.1",
       "files": {
         "model.gguf": {
-          "url": "https://huggingface.co/aurora-ai/models/resolve/main/orpheus-de/3b-de-ft-research_release-q4_k_m.gguf",
+          "url": "https://huggingface.co/freddyaboulton/3b-de-ft-research_release-Q4_K_M-GGUF/resolve/main/3b-de-ft-research_release-q4_k_m.gguf",
           "sha256": "8e33a96807f2af51d2391836fb6253199078dc240e11b79d297bd73cf9bedebe",
           "size": 1996000000
         }
@@ -103,9 +106,10 @@
       "type": "stt",
       "format": "bin",
       "version": "large-v3-turbo-q5_0",
+      "bundle": "models-whisper-turbo.tar.gz",
       "files": {
         "model.bin": {
-          "url": "https://huggingface.co/aurora-ai/models/resolve/main/whisper-turbo/ggml-large-v3-turbo-q5_0.bin",
+          "url": "",
           "sha256": "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2",
           "size": 548000000
         }
@@ -120,7 +124,7 @@
       "version": "large-v3",
       "files": {
         "model.bin": {
-          "url": "https://huggingface.co/aurora-ai/models/resolve/main/whisper-large-v3/ggml-large-v3.bin",
+          "url": "https://huggingface.co/ggml-org/whisper/resolve/main/ggml-large-v3-q5_0.bin",
           "sha256": "",
           "size": 3100000000
         }

@@ -2,6 +2,8 @@ package models
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -49,6 +51,10 @@ func LoadManifest(path string) (*Manifest, error) {
 
 func FetchManifest(ctx context.Context, registryURL string) (*Manifest, error) {
 	manifestURL := registryURL + "/api/v1/manifest.json"
+	return FetchManifestRaw(ctx, manifestURL)
+}
+
+func FetchManifestRaw(ctx context.Context, manifestURL string) (*Manifest, error) {
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, manifestURL, nil)
 	if err != nil {
@@ -100,4 +106,13 @@ func (m *Manifest) ListModels() []string {
 		ids = append(ids, id)
 	}
 	return ids
+}
+
+func FileSHA256(path string) (string, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+	h := sha256.Sum256(data)
+	return hex.EncodeToString(h[:]), nil
 }

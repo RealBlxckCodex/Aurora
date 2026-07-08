@@ -9,6 +9,7 @@ set -euo pipefail
 REPO="RealBlxckCodex/Aurora"
 BINARY="aurora"
 VERSION="${AURORA_VERSION:-latest}"
+RELEASE_TAG="${AURORA_RELEASE_TAG:-}"
 DOWNLOAD_BASE="https://github.com/$REPO/releases/download"
 CONFIG_DIR="/etc/aurora"
 MODELS_DIR="/var/aurora/models"
@@ -113,6 +114,7 @@ if [ "$VERSION" = "latest" ] || curl -sfI "$DOWNLOAD_BASE/$VERSION/$BINARY-$OS-$
       BUILD_FROM_SOURCE=1
     else
       URL="$DOWNLOAD_BASE/$TAG/$BINARY-$OS-$ARCH_GO"
+      RELEASE_TAG="${RELEASE_TAG:-$TAG}"
       info "Downloading $BINARY $TAG..."
       curl -#fL "$URL" -o "$BINARY_PATH"
       chmod +x "$BINARY_PATH"
@@ -120,6 +122,7 @@ if [ "$VERSION" = "latest" ] || curl -sfI "$DOWNLOAD_BASE/$VERSION/$BINARY-$OS-$
     fi
   else
     URL="$DOWNLOAD_BASE/$VERSION/$BINARY-$OS-$ARCH_GO"
+    RELEASE_TAG="${RELEASE_TAG:-$VERSION}"
     info "Downloading $BINARY $VERSION..."
     curl -#fL "$URL" -o "$BINARY_PATH"
     chmod +x "$BINARY_PATH"
@@ -227,6 +230,15 @@ UNIT
   fi
 fi
 
+# ── Models (optional) ──
+if [ "${AURORA_INSTALL_MODELS:-0}" = "1" ] && [ -n "$RELEASE_TAG" ]; then
+  info "Installing models from release $RELEASE_TAG..."
+  $BIN_DIR/$BINARY pull --release "$RELEASE_TAG" --all || warn "Model installation incomplete (some models may be on HuggingFace)"
+elif [ "${AURORA_INSTALL_MODELS:-0}" = "1" ]; then
+  warn "AURORA_INSTALL_MODELS=1 requires a release tag"
+  warn "Set AURORA_RELEASE_TAG=v0.1.0 or run: aurora pull <model>"
+fi
+
 # ── Done ──
 cat <<EOF
 
@@ -234,7 +246,9 @@ cat <<EOF
 
   ${CYAN}Commands:${NC}
     aurora serve              Start the API server
-    aurora pull kokoro-v1     Pull a model
+    aurora pull kokoro-v1     Pull a model from registry
+    aurora pull --release v0.1.0 kokoro-v1   Pull from GitHub Release
+    aurora pull hf.co/...     Pull from HuggingFace
     aurora list               List available models
 
   ${CYAN}API:${NC}
@@ -244,6 +258,16 @@ cat <<EOF
     systemctl start aurora
     systemctl enable aurora
     journalctl -u aurora -f
+
+  ${CYAN}Models:${NC}
+    # Small models (from release bundle):
+    aurora pull --release $RELEASE_TAG kokoro-v1
+    aurora pull --release $RELEASE_TAG kokoro-de
+    aurora pull --release $RELEASE_TAG piper-de_DE
+    aurora pull --release $RELEASE_TAG whisper-turbo
+    # Large models (from HuggingFace):
+    aurora pull hf.co/isaiahbjork/orpheus-3b-0.1-ft-Q4_K_M-GGUF:orpheus-3b-0.1-ft-q4_k_m.gguf
+    aurora pull hf.co/freddyaboulton/3b-de-ft-research_release-Q4_K_M-GGUF:3b-de-ft-research_release-q4_k_m.gguf
 
   ${CYAN}Docs:${NC}
     https://github.com/$REPO#readme
