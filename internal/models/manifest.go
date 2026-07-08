@@ -24,6 +24,8 @@ type ModelEntry struct {
 	Type        string                `json:"type"`
 	Format      string                `json:"format"`
 	Version     string                `json:"version"`
+	Bundle      string                `json:"bundle,omitempty"`
+	BundleSha256 string               `json:"bundle_sha256,omitempty"`
 	Files       map[string]FileEntry  `json:"files"`
 	Voices      []string              `json:"voices,omitempty"`
 	Languages   []string              `json:"languages"`

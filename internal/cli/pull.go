@@ -234,7 +234,10 @@ func installReleaseModel(manifest *models.Manifest, modelID, baseURL, modelDir s
 	}
 
 	// Download tarball from GitHub Release
-	bundleName := "models-" + modelID + ".tar.gz"
+	bundleName := entry.Bundle
+	if bundleName == "" {
+		bundleName = "models-" + modelID + ".tar.gz"
+	}
 	bundleURL := baseURL + "/" + bundleName
 
 	tmpDir, err := os.MkdirTemp("", "aurora-bundle-*")
@@ -251,7 +254,8 @@ func installReleaseModel(manifest *models.Manifest, modelID, baseURL, modelDir s
 	dlCtx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
 	defer cancel()
 
-	if err := dl.Download(dlCtx, bundleURL, tmpArchive, ""); err != nil {
+	bundleSHA := entry.BundleSha256
+	if err := dl.Download(dlCtx, bundleURL, tmpArchive, bundleSHA); err != nil {
 		return fmt.Errorf("download bundle: %w", err)
 	}
 
