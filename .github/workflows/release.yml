@@ -54,26 +54,6 @@ jobs:
             -o "aurora-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.suffix }}" \
             ./cmd/aurora/
 
-      - name: Build aurora-tts
-        env:
-          GOOS: ${{ matrix.os }}
-          GOARCH: ${{ matrix.goarch }}
-          CGO_ENABLED: "0"
-        run: |
-          go build -ldflags "-s -w -X main.version=${{ steps.version.outputs.tag }}" \
-            -o "aurora-tts-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.suffix }}" \
-            ./cmd/aurora-tts/
-
-      - name: Build aurora-stt
-        env:
-          GOOS: ${{ matrix.os }}
-          GOARCH: ${{ matrix.goarch }}
-          CGO_ENABLED: "0"
-        run: |
-          go build -ldflags "-s -w -X main.version=${{ steps.version.outputs.tag }}" \
-            -o "aurora-stt-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.suffix }}" \
-            ./cmd/aurora-stt/
-
       - uses: actions/upload-artifact@v4
         with:
           name: aurora-${{ matrix.os }}-${{ matrix.arch }}
