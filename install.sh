@@ -6,7 +6,7 @@ set -euo pipefail
 #  curl -fsSL https://aurora.sh/install | sh
 # ─────────────────────────────────────────────
 
-REPO="hyper-it/aurora"
+REPO="RealBlxckCodex/Aurora"
 BINARY="aurora"
 VERSION="${AURORA_VERSION:-latest}"
 DOWNLOAD_BASE="https://github.com/$REPO/releases/download"

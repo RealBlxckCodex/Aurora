@@ -55,7 +55,7 @@ curl http://localhost:11435/v1/audio/transcriptions \
 ### From source
 
 ```bash
-git clone https://github.com/hyper-it/aurora.git
+git clone https://github.com/RealBlxckCodex/Aurora.git
 cd aurora
 make build
 ```
